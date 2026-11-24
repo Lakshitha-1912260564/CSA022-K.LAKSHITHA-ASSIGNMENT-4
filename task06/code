@@ -1,0 +1,130 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_ITEMS 20
+
+typedef struct {
+    int day, month, year;
+} Date;
+
+typedef struct {
+    int hour, minute;
+} Time;
+
+typedef enum { PACKAGED, COOKED, COMBO } ItemType;
+
+typedef struct {
+    int id;
+    char name[30];
+    ItemType type;
+    float price;
+    int stock;
+    int unitsSold;
+    float totalRevenue;
+    union {
+        Date expiryDate;           /* For PACKAGED */
+        Time preparedTime;         /* For COOKED */
+        struct {                   /* For COMBO (up to 3 item IDs) */
+            int itemIds[3];
+            int itemCount;
+        } combo;
+    } details;
+} CanteenItem;
+
+/* Helper to convert Date to approximate serial days for comparison */
+long toDays(Date d) {
+    return d.year * 365L + d.month * 30L + d.day;
+}
+
+void recordSale(CanteenItem *item, int qty) {
+    if (qty <= 0) {
+        printf("[Error] Invalid quantity for %s.\n", item->name);
+        return;
+    }
+    if (qty > item->stock) {
+        printf("[Stock Alert] Cannot sell %d x %s (Only %d in stock).\n",
+               qty, item->name, item->stock);
+        return;
+    }
+    item->stock -= qty;
+    item->unitsSold += qty;
+    item->totalRevenue += qty * item->price;
+    printf("[Sold] %d x %s | Bill: Rs. %.2f | Remaining Stock: %d\n",
+           qty, item->name, qty * item->price, item->stock);
+}
+
+void checkExpiryWarnings(const CanteenItem items[], int n, Date today) {
+    printf("\n--- Expiry Warnings (Within 2 Days of %02d/%02d/%04d) ---\n",
+           today.day, today.month, today.year);
+    long todaySerial = toDays(today);
+    int found = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (items[i].type == PACKAGED) {
+            long diff = toDays(items[i].details.expiryDate) - todaySerial;
+            if (diff >= 0 && diff <= 2) {
+                printf("WARNING: %s (ID %d) expires on %02d/%02d/%04d (%ld day(s) left)\n",
+                       items[i].name, items[i].id,
+                       items[i].details.expiryDate.day,
+                       items[i].details.expiryDate.month,
+                       items[i].details.expiryDate.year, diff);
+                found = 1;
+            }
+        }
+    }
+    if (!found) {
+        printf("No packaged items expiring within 2 days.\n");
+    }
+}
+
+void printSortedSummary(CanteenItem items[], int n) {
+    /* Selection sort descending by totalRevenue */
+    for (int i = 0; i < n - 1; i++) {
+        int maxIdx = i;
+        for (int j = i + 1; j < n; j++) {
+            if (items[j].totalRevenue > items[maxIdx].totalRevenue) {
+                maxIdx = j;
+            }
+        }
+        if (maxIdx != i) {
+            CanteenItem temp = items[i];
+            items[i] = items[maxIdx];
+            items[maxIdx] = temp;
+        }
+    }
+
+    printf("\n--- Daily Bill Summary (Sorted by Revenue) ---\n");
+    printf("%-5s %-18s %-8s %-10s %-10s\n", "ID", "Item", "Sold", "Stock", "Revenue");
+    for (int i = 0; i < n; i++) {
+        printf("%-5d %-18s %-8d %-10d Rs. %-8.2f\n",
+               items[i].id, items[i].name, items[i].unitsSold,
+               items[i].stock, items[i].totalRevenue);
+    }
+}
+
+int main(void) {
+    Date today = {24, 11, 2026};
+
+    CanteenItem menu[4] = {
+        {101, "Mango Juice", PACKAGED, 30.0f, 15, 0, 0.0f, {.expiryDate = {25, 11, 2026}}},
+        {102, "Veg Puff",    COOKED,   25.0f, 10, 0, 0.0f, {.preparedTime = {9, 30}}},
+        {103, "Lunch Combo", COMBO,    80.0f,  5, 0, 0.0f, {.combo = {{101, 102}, 2}}},
+        {104, "Biscuit Pack",PACKAGED, 20.0f, 20, 0, 0.0f, {.expiryDate = {15, 12, 2026}}}
+    };
+
+    /* 1. Normal sales */
+    recordSale(&menu[0], 4);
+    recordSale(&menu[1], 6);
+    recordSale(&menu[2], 3);
+
+    /* 2. Sale exceeding available stock */
+    recordSale(&menu[2], 5);
+
+    /* 3. Expiring item warning */
+    checkExpiryWarnings(menu, 4, today);
+
+    /* 4. Sorted revenue summary */
+    printSortedSummary(menu, 4);
+
+    return 0;
+}

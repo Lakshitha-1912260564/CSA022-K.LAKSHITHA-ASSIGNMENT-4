@@ -1,0 +1,53 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_PATIENTS 100
+
+typedef struct {
+    int day;
+    int month;
+    int year;
+} Date;
+
+typedef struct {
+    int systolic;
+    int diastolic;
+} BloodPressure;
+
+typedef struct {
+    char name[50];
+    int age;
+    char phone[15]; /* Fits 10 digits + country code + null terminator */
+    BloodPressure bp;
+    Date visitDate;
+} Patient;
+
+int addPatient(Patient list[], int *count, const Patient *newPatient) {
+    if (*count >= MAX_PATIENTS) {
+        printf("Error: Patient register is full.\n");
+        return 0;
+    }
+    list[*count] = *newPatient;
+    (*count)++;
+    return 1;
+}
+
+int main(void) {
+    Patient registerList[MAX_PATIENTS];
+    int count = 0;
+
+    Patient p1 = {"Ananya Rao", 34, "9876543210", {120, 80}, {24, 11, 2026}};
+    Patient p2 = {"Karthik M", 52, "9123456789", {138, 88}, {24, 11, 2026}};
+
+    addPatient(registerList, &count, &p1);
+    addPatient(registerList, &count, &p2);
+
+    for (int i = 0; i < count; i++) {
+        printf("%s | Age: %d | Phone: %s | BP: %d/%d | Visit: %02d/%02d/%04d\n",
+               registerList[i].name, registerList[i].age, registerList[i].phone,
+               registerList[i].bp.systolic, registerList[i].bp.diastolic,
+               registerList[i].visitDate.day, registerList[i].visitDate.month,
+               registerList[i].visitDate.year);
+    }
+    return 0;
+}
